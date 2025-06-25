@@ -116,4 +116,48 @@ proc_enssex <- proc_enssex %>%
   mutate(mast_propia = case_when(p98 == 1 ~ 1, p98 == 2 ~ 0))
 
 #/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+# IV- Tratamiento de NA 
+#- Transformar valores missing a NA
+proc_enssex$i_3_p28[proc_enssex$i_3_p28 %in% c(8, 9)] <- NA
+proc_enssex$i_5_p28[proc_enssex$i_5_p28 %in% c(8, 9)] <- NA
+proc_enssex$i_7_p28[proc_enssex$i_7_p28 %in% c(8, 9)] <- NA
+proc_enssex$p34[proc_enssex$p34 %in% c(8, 9)] <- NA
+proc_enssex$p38[proc_enssex$p38 %in% c(8, 9)] <- NA
+proc_enssex$i_1_p41[proc_enssex$i_1_p41 %in% c(9)] <- NA
+proc_enssex$i_2_p41[proc_enssex$i_2_p41 %in% c(9)] <- NA
+proc_enssex$i_3_p41[proc_enssex$i_3_p41 %in% c(9)] <- NA
+proc_enssex$i_4_p41[proc_enssex$i_4_p41 %in% c(9)] <- NA
+proc_enssex$p98[proc_enssex$p98 %in% c(9)] <- NA
+proc_enssex$p134[proc_enssex$p134 %in% c(6, 8, 9)] <- NA 
+proc_enssex$p269[proc_enssex$p269 %in% c(9)] <- NA
+proc_enssex$p270[proc_enssex$p270 %in% c(99)] <- NA
+proc_enssex$p4[proc_enssex$p4 %in% c(999)] <- NA  # Solo si aplica
+
+# Filtrar personas de 18 a 29 años
+proc_enssex <- proc_enssex %>%
+  filter(!is.na(p4) & p4 >= 18 & p4 <= 29) #aca se eliminan los que pueden estar en edad
+
+# Tratamiento de NA (justificar por qué eliminamos los NA) (2203 obs. 32 variables)
+proc_enssex <- na.omit(proc_enssex)
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+# V- Creción de variable dependiente
+#- crear matriz de correlacion
+matriz_1 <- proc_enssex %>% 
+  dplyr::select(aborto, acept_dis, educ_placer, motiv_1sex, exploracion_sex, mast_alguien, mast_propia)
+
+#- ver matriz de correlacion (ver que no existan correlaciones negativas)
+sjPlot::tab_corr(matriz_1,
+                 triangle = "lower")
+
+#- ver alpha de cronbach para consistencia interna (o.54 estandariza, 0.49 clasico)
+psych::alpha(matriz_1)
+
+#- creación de la escala sumativa (0-13)
+proc_enssex$apertura_sex <- proc_enssex$aborto + proc_enssex$acept_dis + proc_enssex$educ_placer + 
+  proc_enssex$motiv_1sex + proc_enssex$exploracion_sex + proc_enssex$mast_propia + proc_enssex$mast_alguien
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
 
