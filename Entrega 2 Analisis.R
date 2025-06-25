@@ -160,4 +160,5 @@ proc_enssex$apertura_sex <- proc_enssex$aborto + proc_enssex$acept_dis + proc_en
 
 #/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
+table(proc_enssex$p134)
 
