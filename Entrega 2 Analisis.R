@@ -1,6 +1,6 @@
 ################################################################################
 
-#Analisis 
+# Correcciones base de datos
 
 #Entrega 2
 
@@ -18,10 +18,12 @@ pacman::p_load(tidyverse, # Manipulacion de datos
                dplyr,
                stargazer,
                lme4,
-               haven) # Varios
+               haven,
+               summarytools) # Varios
 
 options(scipen = 999) # para desactivar notacion cientifica
 rm(list = ls()) # para limpiar el entorno de trabajo
+
 
 #Cargamos la base de datos
 
@@ -140,7 +142,6 @@ proc_enssex <- proc_enssex %>%
     p134 == 4 ~ 0        
   ))
 
-
 # 2) variable religion (-) (0 bajo, 1 medio, 2 alto)
 proc_enssex <- proc_enssex %>%
   mutate(escala_religion = case_when(
@@ -167,24 +168,189 @@ proc_enssex <- proc_enssex %>%
 
 # 5) conservadurismo (-)
 
-# 1) variable aborto (0-1)
+#-recodificar variable i_5_p28 (0-1)***
 proc_enssex <- proc_enssex %>%
   mutate(aborto = case_when(
     i_5_p28 %in% c(1, 2) ~ 1,
     i_5_p28 %in% c(3, 4) ~ 0))
 
-# 2) variable aceptacion_dis (0-2)
-# -recodificar p31
-proc_enssex$acept_min_sex <- proc_enssex %>%
-  mutate(acept_min_sex = case_when(
-    p31 %in% c(2, 3) ~ 1,
-    p31 == 1 ~ 0))
+# -recodificar p31 (0-1)***
+proc_enssex <- proc_enssex %>%
+  mutate(acept_min = case_when(
+    p31 == 1 ~ 0,
+    p31 %in% c(2, 3) ~ 1))
+
+# -recodificar p32 (0-1)***
+proc_enssex <- proc_enssex %>%
+  mutate(acept_trans = case_when(
+    p32 == 1 ~ 0,
+    p32 %in% c(2, 3) ~ 1))
+
+#-recodificar i_1_p41 (0-2)
+proc_enssex <- proc_enssex %>%
+  mutate(i_1_p41 = case_when(
+    i_1_p41 == 1 ~ 0,
+    i_1_p41 == 2 ~ 1,
+    i_1_p41 == 3 ~ 2))
+
+#-recodificar i_3_p41 (0-2)
+proc_enssex <- proc_enssex %>%
+  mutate(i_3_p41 = case_when(
+    i_3_p41 == 1 ~ 0,
+    i_3_p41 == 2 ~ 1,
+    i_3_p41 == 3 ~ 2))
+
+#-crear matriz 
+matriz_2 <- proc_enssex %>% 
+  dplyr::select(aborto, acept_min, acept_trans, i_1_p41, i_3_p41)
+
+#- ver matriz de correlacion (ver que no existan correlaciones negativas)
+sjPlot::tab_corr(matriz_2,
+                 triangle = "lower")
+
+#- ver alpha de cronbach para consistencia interna (o.62)
+psych::alpha(matriz_2)
+
+#- crear escala sumativa para conservadurismo (0-7)
+proc_enssex$conservadurismo <- proc_enssex$aborto + proc_enssex$acept_min + proc_enssex$acept_trans + 
+  proc_enssex$i_1_p41 + proc_enssex$i_3_p41
+
+### FIN DE CORRECCIONES ###
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+#VII- Selección de variables de interés y base de datos limpia
+
+proc_enssex <- proc_enssex %>%
+  rename(edad = p4) #Cambie el nombre de la variable de edad a edad
+
+proc_enssex <- proc_enssex %>%
+  select(apertura_sex, orient_sex, orient_politica, escala_religion, ed_sex,
+         conservadurismo, edad) #Base de datos limpia
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+#VIII Selección de sub muestra final
+
+# Selección de 1000 casos aleatorios, conservando disidencias (valores 1 y 2)
+
+# Seleccionar todos los casos disidentes (orient_sex == 1 o 2)
+sub_dis <- subset(proc_enssex, orient_sex %in% c(1, 2))
+
+# Seleccionar los casos heterosexuales (orient_sex == 0)
+al_hetero <- subset(proc_enssex, orient_sex == 0)
+
+# Extraer muestra aleatoria de heterosexuales para completar 1000 casos
+set.seed(123)  # para reproducibilidad
+sub_hetero <- al_hetero[sample(nrow(al_hetero), 1000 - nrow(sub_dis)), ]
+
+# Combinar ambas submuestras
+enssex_final <- rbind(sub_dis, sub_hetero)
 
 
-# -recodificar p32
-proc_enssex$acept_trans <- ifelse(proc_enssex$p32 == 1, 1,
-                                  ifelse(proc_enssex$p32 == 2, 0, 
-                                         ifelse(proc_enssex$p32 == 3, 0, NA)))
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
-# -crear escala sumativa (0=menor - 2=mayor)
-proc_enssex$acept_dis <- proc_enssex$acept_min_sex + proc_enssex$acept_trans
+# Análisis
+
+# Estadisticos descriptivos de las variables
+
+summary(proc_enssex %>%
+          select(apertura_sex, orient_sex, orient_politica,
+                 escala_religion, ed_sex, conservadurismo, edad))
+
+enssex_final %>%
+  select(apertura_sex, orient_sex, orient_politica,
+         escala_religion, ed_sex, conservadurismo, edad) %>%
+  psych::describe() %>%
+  select(n, mean, sd, median, min, max, range) %>%
+  kable(
+    caption = "Descriptivos generales de variables del estudio",
+    digits = 2
+  ) %>%
+  kable_styling(full_width = TRUE)
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+# Correlaciones
+# Pearsons entre variable dependiente y conservadurismo 
+
+cor.test(enssex_final$apertura_sex, enssex_final$conservadurismo,
+         method = "pearson", use = "complete.obs")
+
+# cor -0.3375053 -> moderado
+# p-value < 0.00000000000000022
+
+# Pearsons entre variable dependiente y calidad ed. sexual
+
+cor.test(enssex_final$apertura_sex, enssex_final$ed_sex,
+         method = "pearson", use = "complete.obs")
+
+# cor -0.1593043 -> pequeño
+# p-value = 0.0000004112
+
+# Pearsons entre variable dependiente y escala de religiosidad
+
+cor.test(enssex_final$apertura_sex, enssex_final$escala_religion,
+         method = "pearson", use = "complete.obs")
+
+#cor -0.1504913 -> pequeño
+# p-value = 0.000001751
+
+#Test Chi2 entre variable dependiente y orientación politica.
+
+tabla_bivariada_1 <- table(enssex_final$orient_politica)
+tabla_bivariada_1
+
+chisq.test(tabla_bivariada_1)
+
+#Test Chi2 entre variable dependiente y orientación sexual.
+
+tabla_bivariada_2 <- table(enssex_final$orient_sex)
+tabla_bivariada_2
+
+chisq.test(tabla_bivariada_2)
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+#1) Creación de sets de k-1 duummies
+
+# Orientación política 0 es la referencia = izquierda
+# Asegurarse de que sea factor
+enssex_final$orient_politica <- as.factor(enssex_final$orient_politica)
+
+# Crear matriz de dummies tipo k-1 (excluye la primera categoría como referencia)
+dummies <- model.matrix(~ orient_politica, data = enssex_final)
+
+# Ver resultados (quita el intercepto)
+dummies <- dummies[, -1]  # elimina columna (Intercept)
+head(dummies)
+
+
+# Grado de religiosidad
+
+dummies_religion <- model.matrix(~ escala_religion, data = enssex_final)
+
+# Eliminar columna (Intercept)
+dummies_religion <- dummies_religion[, -1]
+
+# Ver resultado
+head(dummies_religion)
+
+# Calidad de educación sexual
+
+# Orientación sexual
+
+#/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+#Modelos
+
+#parcial 1 con conservadurismo, orientación politica y religion
+
+#parcial 2 con orientación sexual
+
+#parcial 3 con educación sexual
+
+#modelo completo.
+
+
+
+
